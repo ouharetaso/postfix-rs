@@ -160,3 +160,79 @@ fn parse_rec(input: &mut VecDeque<Token>) -> Result<Vec<Command>, ParseError> {
 
     Ok(result)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::postfix::{BinaryOp, Command};
+
+    #[test]
+    fn lexer_tokenizes_valid_program() {
+        let tokens = lexer("(postfix 2 -12 swap add)").unwrap();
+        assert_eq!(
+            tokens,
+            VecDeque::from(vec![
+                Token::LParen,
+                Token::Postfix,
+                Token::Number(2),
+                Token::Number(-12),
+                Token::Command("swap".to_string()),
+                Token::Command("add".to_string()),
+                Token::RParen,
+                Token::EOF,
+            ])
+        );
+    }
+
+    #[test]
+    fn lexer_reports_invalid_input() {
+        assert_eq!(lexer("@"), Err(ParseError::InvalidCharacter));
+        assert_eq!(lexer("-"), Err(ParseError::InvalidNumber));
+    }
+
+    #[test]
+    fn parse_parses_nested_executable_sequence() {
+        let mut tokens = lexer("(postfix 1 (2 add) exec)").unwrap();
+        let parsed = parse(&mut tokens).unwrap();
+        assert_eq!(
+            parsed,
+            (
+                1,
+                vec![
+                    Command::ExecutableSequence(vec![
+                        Command::Number(2),
+                        Command::BinaryOp(BinaryOp::Add),
+                    ]),
+                    Command::Exec,
+                ],
+            )
+        );
+    }
+
+    #[test]
+    fn parse_reports_argument_count_and_syntax_errors() {
+        let mut negative_argc = lexer("(postfix -1)").unwrap();
+        assert_eq!(parse(&mut negative_argc), Err(ParseError::InvalidArgumentCount));
+
+        let mut non_numeric_argc = lexer("(postfix swap)").unwrap();
+        assert_eq!(parse(&mut non_numeric_argc), Err(ParseError::InvalidSyntax));
+
+        let mut empty = VecDeque::new();
+        assert_eq!(parse(&mut empty), Err(ParseError::InvalidSyntax));
+    }
+
+    #[test]
+    fn parse_reports_command_and_structure_errors() {
+        let mut unknown_command = lexer("(postfix 0 nope)").unwrap();
+        assert_eq!(parse(&mut unknown_command), Err(ParseError::UnknownCommand));
+
+        let mut extra_tokens = lexer("(postfix 0) 1").unwrap();
+        assert_eq!(parse(&mut extra_tokens), Err(ParseError::UnexpectedToken));
+
+        let mut missing_rparen = lexer("(postfix 0 (1 add)").unwrap();
+        assert_eq!(parse(&mut missing_rparen), Err(ParseError::UnexpectedEOF));
+
+        let mut misplaced_postfix = lexer("(postfix 0 postfix)").unwrap();
+        assert_eq!(parse(&mut misplaced_postfix), Err(ParseError::UnexpectedToken));
+    }
+}
