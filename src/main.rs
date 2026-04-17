@@ -1,5 +1,4 @@
-use postfix_rs::postfix::eval;
-use postfix_rs::parser::*;
+use postfix_rs::rewrite::step;
 
 
 #[derive(Debug, Clone)]
@@ -19,16 +18,27 @@ impl std::error::Error for AppError {}
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
     let args: Vec<String> = std::env::args().collect();
-    let mut tokens = lexer(args.get(1).ok_or(AppError::TooFewArguments)?)?;
-    let postfix_args = args.get(2).ok_or(AppError::TooFewArguments)?
-        .split_whitespace()
-        .map(|s| s.parse::<isize>())
-        .collect::<Result<_, _>>()?;
-    let (argc, command_sequence) = parse(&mut tokens)?;
 
+    let mut program = args.get(1).ok_or(AppError::TooFewArguments)?.to_owned();
+    let mut args = args.get(2).ok_or(AppError::TooFewArguments)?.to_owned();
+
+    loop {
+        println!("\"{}\" \"{}\"", program, args);
+        let (new_program, new_args) = step(&program, &args)?;
+        if program == new_program {
+            break;
+        }
+        else {
+            program = new_program;
+            args = new_args;
+        }
+    }
+
+    /*
     let result = eval(argc, postfix_args, command_sequence)?;
 
     println!("result: {}", result);
+    */
 
     Ok(())
 }
@@ -39,9 +49,8 @@ mod tests {
     use std::num::ParseIntError;
     use postfix_rs::postfix::PostfixError::{self, *};
 
-    use super::lexer;
-    use super::parse;
-    use super::eval;
+    use postfix_rs::parser::{lexer, parse};
+    use postfix_rs::postfix::eval;
 
     fn parse_and_eval(input: &str, args: &str) -> Result<isize, PostfixError> {
         let mut tokens = lexer(input).unwrap();
