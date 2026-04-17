@@ -139,11 +139,7 @@ pub fn step(input: &str, args: &str) -> Result<(String, String), PostfixError> {
         rest = r;
     }
 
-    if !rest.ends_with(")") {
-        return Err(PostfixError{});
-    }
-
-    if let Some((op, _)) = rest.split_prefix_pattern(skip_identifier) {
+    let result = if let Some((op, _)) = rest.split_prefix_pattern(skip_identifier) {
         let (result, range) = match op {
             "add" | "sub" | "mul" | "div" |
             "rem" | "lt"  | "eq"  | "gt"  |
@@ -209,10 +205,25 @@ pub fn step(input: &str, args: &str) -> Result<(String, String), PostfixError> {
 
         let mut res = input.to_string();
         res.replace_range(range, &result);
-        Ok((res, String::new()))
+        (res, String::new())
     }
     else {
-        Ok((input.to_string(), args.to_string()))
+        (input.to_string(), args.to_string())
+    };
+
+    while let Some((_, r)) = rest.split_prefix_pattern(skip_whitespace)
+        .or_else(|| rest.split_prefix_pattern(skip_number))
+        .or_else(|| rest.split_prefix_pattern(skip_paren))
+        .or_else(|| rest.split_prefix_pattern(skip_identifier))
+    {
+        rest = r;
+    }
+
+    if rest.trim() == ")" {
+        Ok(result)
+    }
+    else {
+        Err(PostfixError{})
     }
 }
 
