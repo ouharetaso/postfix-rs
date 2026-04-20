@@ -267,7 +267,7 @@ fn binary_op(op: &str, v1: &str, v2: &str) -> Result<String, PostfixError> {
             "rem" => v2.checked_rem(v1).ok_or(PostfixError{})?,
             "lt" => (v2 < v1) as isize,
             "gt" => (v2 > v1) as isize,
-            "eq" => (v2 + v1) as isize,
+            "eq" => (v2 == v1) as isize,
             _ => return Err(PostfixError{})
         };
         Ok(result.to_string())
